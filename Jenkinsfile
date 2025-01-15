@@ -46,4 +46,18 @@ pipeline {
             }
         }
     }
-}
+    stage('Deploy to Kubernetes') {
+            steps {
+                sh 'kubectl apply -f deployment.yaml'
+            }
+        }
+    }
+    stage('RunDASTUsingZAP') {
+      steps {
+        withKubeConfig([credentialsId: 'kubelogin']) {
+          sh('zap.sh -cmd -port 8090 -quickurl http://$(kubectl get services/asg --namespace=devsecops -o json| jq -r ".status.loadBalancer.ingress[] | .hostname") -quickprogress -quickout ${WORKSPACE}/zap_report.html')
+          archiveArtifacts artifacts: 'zap_report.html'
+        }
+      }
+    }
+  }
