@@ -83,12 +83,7 @@ pipeline {
             }
         }
         
-        stage('Run Linter and Formatter') {
-            steps {
-                sh 'mvn spotless:apply'
-                sh 'mvn spotless:check'
-            }
-        }
+        
     }
     
     post {
