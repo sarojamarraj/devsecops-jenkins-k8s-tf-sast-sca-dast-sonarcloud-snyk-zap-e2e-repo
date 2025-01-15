@@ -54,13 +54,13 @@ pipeline {
         }
         }
         stage('Waiting for deployment to stabilize') {
-    steps {
+        steps {
         sh 'pwd; sleep 60; echo "Application has been deployed on K8S"'
-    }
-}
+        }
+        }
 
-stage('DAST BlackBox') {
-    steps {
+        stage('DAST BlackBox') {
+        steps {
         withKubeConfig([credentialsId: 'kubelogin']) {
             script {
                 def serviceUrl = sh(script: 'kubectl get services/asg --namespace=devsecops -o json | jq -r ".spec.clusterIP"', returnStdout: true).trim()
@@ -69,9 +69,9 @@ stage('DAST BlackBox') {
             }
         }
         archiveArtifacts artifacts: 'zap_report.html'
-    }
-}
-post {
+        }
+        }
+    post {
         always {
             // Archive both the Gitleaks JSON report for inspection
             archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
@@ -79,6 +79,6 @@ post {
         failure {
             echo "Build failed, check reports for detected issues!"
         }
+    }    
+    } 
     }
-} 
-}
