@@ -3,6 +3,16 @@ pipeline {
     tools { 
         maven 'Maven_3_8_7'  
     }
+    environment {
+        SONAR_TOKEN = credentials('sonar-token')
+        SNYK_TOKEN = credentials('SNYK_TOKEN')
+        DOCKER_CREDENTIALS_ID = 'dockerlogin'
+        KUBE_CREDENTIALS_ID = 'kubelogin'
+        DOCKER_IMAGE_NAME = 'sarojamarraj/asg'
+        DOCKER_REGISTRY = 'https://registry.hub.docker.com'
+        SONAR_PROJECT_KEY = 'asbuggywebapp6'
+        SONAR_ORGANIZATION = 'asbuggywebapp6'
+    }
     stages {
         stage('Run Gitleaks') {
             steps {
@@ -15,7 +25,7 @@ pipeline {
         
         stage('Compile and Run Sonar Analysis White box') {
             steps {    
-                sh 'mvn clean verify sonar:sonar -Dsonar.projectKey=asbuggywebapp6 -Dsonar.organization=asbuggywebapp6 -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=0ab485f7b37004e64bf1df4e8ca4c5be980cb930'
+                sh "mvn clean verify sonar:sonar -Dsonar.projectKey=${SONAR_PROJECT_KEY} -Dsonar.organization=${SONAR_ORGANIZATION} -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=${SONAR_TOKEN}"
             }
         }
 
@@ -30,7 +40,7 @@ pipeline {
         stage('Build Docker Image') { 
             steps { 
                 script {
-                    app = docker.build("sarojamarraj/asg")
+                    app = docker.build("${DOCKER_IMAGE_NAME}")
                 }
             }
         }
@@ -38,7 +48,7 @@ pipeline {
         stage('Push image to repo') {
             steps {
                 script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'dockerlogin') {
+                    docker.withRegistry("${DOCKER_REGISTRY}", "${DOCKER_CREDENTIALS_ID}") {
                         app.push("latest")
                     }
                 }
@@ -47,7 +57,7 @@ pipeline {
         
         stage('Deploy to Kubernetes') {
             steps {
-                withKubeConfig([credentialsId: 'kubelogin']) {
+                withKubeConfig([credentialsId: "${KUBE_CREDENTIALS_ID}"]) {
                     sh('kubectl delete all --all -n devsecops')
                     sh('kubectl apply -f deployment.yaml --namespace=devsecops')
                 }
@@ -62,7 +72,7 @@ pipeline {
 
         stage('DAST BlackBox') {
             steps {
-                withKubeConfig([credentialsId: 'kubelogin']) {
+                withKubeConfig([credentialsId: "${KUBE_CREDENTIALS_ID}"]) {
                     script {
                         def serviceUrl = sh(script: 'kubectl get services/asg --namespace=devsecops -o json | jq -r ".spec.clusterIP"', returnStdout: true).trim()
                         echo "Service URL: ${serviceUrl}"
@@ -70,6 +80,13 @@ pipeline {
                     }
                 }
                 archiveArtifacts artifacts: 'zap_report.html'
+            }
+        }
+        
+        stage('Run Linter and Formatter') {
+            steps {
+                sh 'mvn spotless:apply'
+                sh 'mvn spotless:check'
             }
         }
     }
