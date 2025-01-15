@@ -3,7 +3,8 @@ pipeline {
     tools { 
         maven 'Maven_3_8_7'  
     }
-    stage('Run Gitleaks') {
+    stages {
+        stage('Run Gitleaks') {
             steps {
                 script {
                     // Run Gitleaks and generate JSON report, but continue regardless of exit status
@@ -11,7 +12,7 @@ pipeline {
                 }
             }
         }
-    stages {
+        
         stage('Compile and Run Sonar Analysis') {
             steps {	
                 sh 'mvn clean verify sonar:sonar -Dsonar.projectKey=asbuggywebapp6 -Dsonar.organization=asbuggywebapp6 -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=0ab485f7b37004e64bf1df4e8ca4c5be980cb930'
@@ -45,19 +46,29 @@ pipeline {
                 }
             }
         }
-    }
-    stage('Deploy to Kubernetes') {
+
+        stage('Deploy to Kubernetes') {
             steps {
                 sh 'kubectl apply -f deployment.yaml'
             }
         }
-    
-    stage('RunDASTUsingZAP') {
-      steps {
-        withKubeConfig([credentialsId: 'kubelogin']) {
-          sh('zap.sh -cmd -port 8090 -quickurl http://$(kubectl get services/asg --namespace=devsecops -o json| jq -r ".status.loadBalancer.ingress[] | .hostname") -quickprogress -quickout ${WORKSPACE}/zap_report.html')
-          archiveArtifacts artifacts: 'zap_report.html'
+
+        stage('Run DAST Using ZAP') {
+            steps {
+                withKubeConfig([credentialsId: 'kubelogin']) {
+                    sh('zap.sh -cmd -port 8090 -quickurl http://$(kubectl get services/asg --namespace=devsecops -o json| jq -r ".status.loadBalancer.ingress[] | .hostname") -quickprogress -quickout ${WORKSPACE}/zap_report.html')
+                    archiveArtifacts artifacts: 'zap_report.html'
+                }
+            }
         }
-      }
     }
-  }
+    post {
+        always {
+            // Archive both the Gitleaks JSON report for inspection
+            archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
+        }
+        failure {
+            echo "Build failed, check reports for detected issues!"
+        }
+    }
+}
