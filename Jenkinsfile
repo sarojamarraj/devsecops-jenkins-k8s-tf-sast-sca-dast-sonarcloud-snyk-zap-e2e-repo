@@ -3,6 +3,14 @@ pipeline {
     tools { 
         maven 'Maven_3_8_7'  
     }
+    stage('Run Gitleaks') {
+            steps {
+                script {
+                    // Run Gitleaks and generate JSON report, but continue regardless of exit status
+                    sh(script: "gitleaks detect --source . --report-path=gitleaks-report.json", returnStatus: true)
+                }
+            }
+        }
     stages {
         stage('Compile and Run Sonar Analysis') {
             steps {	
