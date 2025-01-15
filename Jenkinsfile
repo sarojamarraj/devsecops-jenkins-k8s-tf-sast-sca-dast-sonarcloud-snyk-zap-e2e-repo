@@ -71,13 +71,14 @@ stage('DAST BlackBox') {
         archiveArtifacts artifacts: 'zap_report.html'
     }
 }
-
 post {
-    always {
-        archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
+        always {
+            // Archive both the Gitleaks JSON report for inspection
+            archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
+        }
+        failure {
+            echo "Build failed, check reports for detected issues!"
+        }
     }
-    failure {
-        echo "Build failed, check reports for detected issues!"
-    }
+} 
 }
-} }
