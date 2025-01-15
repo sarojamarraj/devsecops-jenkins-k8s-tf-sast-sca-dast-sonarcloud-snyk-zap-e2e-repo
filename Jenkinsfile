@@ -47,10 +47,12 @@ pipeline {
         
         stage('Deploy to Kubernetes') {
             steps {
-                sh 'kubectl apply -f deployment.yaml'
+                withKubeConfig([credentialsId: 'kubelogin']) {
+          sh('kubectl delete all --all -n devsecops')
+          sh('kubectl apply -f deployment.yaml --namespace=devsecops')
             }
         }
-
+        }
         stage('Run DAST Using ZAP') {
             steps {
                 withKubeConfig([credentialsId: 'kubelogin']) {
