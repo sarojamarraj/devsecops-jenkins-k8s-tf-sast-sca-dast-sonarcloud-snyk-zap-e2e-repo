@@ -41,7 +41,7 @@ pipeline {
             steps {
                 withDockerRegistry([credentialsId: "dockerlogin", url: ""]) {
                     script {
-                        app.push("sarojamarraj/asg:latest")
+                        app.push("sarojamarraj/asg:v1.0")
                     }
                 }
             }
