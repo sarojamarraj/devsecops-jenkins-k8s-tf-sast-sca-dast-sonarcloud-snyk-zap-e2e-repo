@@ -13,7 +13,7 @@ pipeline {
             }
         }
         
-        stage('Compile and Run Sonar Analysis') {
+        stage('Compile and Run Sonar Analysis White box') {
             steps {    
                 sh 'mvn clean verify sonar:sonar -Dsonar.projectKey=asbuggywebapp6 -Dsonar.organization=asbuggywebapp6 -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=0ab485f7b37004e64bf1df4e8ca4c5be980cb930'
             }
@@ -35,7 +35,7 @@ pipeline {
             }
         }
         
-        stage('Push image') {
+        stage('Push image to repo') {
             steps {
                 script {
                     docker.withRegistry('https://registry.hub.docker.com', 'dockerlogin') {
@@ -53,11 +53,18 @@ pipeline {
             }
         }
         }
-        stage('Run DAST Using ZAP') {
+        stage('Waiting for deployement to stabilize') {
+      steps {
+        sh 'pwd; sleep 60; echo "Application Has been deployed on K8S"'
+      }
+    }
+
+        
+        stage('DAST BlackBox') {
             steps {
                 withKubeConfig([credentialsId: 'kubelogin']) {
                     script {
-                        def serviceUrl = sh(script: 'kubectl get services/asg --namespace=devsecops -o json | jq -r ".status.loadBalancer.ingress[] | .hostname"', returnStdout: true).trim()
+                        def serviceUrl = sh(script: 'kubectl get services/asg --namespace=devsecops -o json | jq -r "".spec.clusterIP"', returnStdout: true).trim()
                         sh "zap.sh -cmd -port 8090 -quickurl http://${serviceUrl} -quickprogress -quickout ${WORKSPACE}/zap_report.html"
                     }
                     archiveArtifacts artifacts: 'zap_report.html'
