@@ -30,7 +30,7 @@ pipeline {
             steps { 
                 withDockerRegistry([credentialsId: "dockerlogin", url: ""]) {
                     script {
-                        app = docker.build("your-dockerhub-username/asg:latest")
+                        app = docker.build("sarojamarraj/asg:latest")
                     }
                 }
             }
@@ -40,7 +40,7 @@ pipeline {
             steps {
                 withDockerRegistry([credentialsId: "dockerlogin", url: ""]) {
                     script {
-                        app.push()
+                        app.push("sarojamarraj/asg:latest")
                     }
                 }
             }
