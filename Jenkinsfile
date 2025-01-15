@@ -27,26 +27,17 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') { 
-            steps { 
-                withDockerRegistry([credentialsId: "dockerlogin", url: ""]) {
-                    script {
-                        app = docker.build("sarojamarraj/asg:latest")
-                    }
-                }
-            }
-        }
+        stage('Build and Push Docker Image') { 
+    steps { 
+        script {
+            // Build the Docker image with the 'latest' tag
+            app = docker.build("sarojamarraj/asg:latest")
 
-        stage('Push Docker Image') {
-            steps {
-                withDockerRegistry([credentialsId: "dockerlogin", url: ""]) {
-                    script {
-                        app.push("sarojamarraj/asg:v1.0")
-                    }
-                }
-            }
+            // Push the Docker image with the 'latest' tag
+            app.push("latest")
         }
-
+    }
+}
         stage('Deploy to Kubernetes') {
             steps {
                 sh 'kubectl apply -f deployment.yaml'
