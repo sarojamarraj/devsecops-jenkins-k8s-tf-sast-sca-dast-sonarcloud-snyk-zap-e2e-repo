@@ -14,35 +14,38 @@ pipeline {
         }
         
         stage('Compile and Run Sonar Analysis') {
-            steps {	
+            steps {    
                 sh 'mvn clean verify sonar:sonar -Dsonar.projectKey=asbuggywebapp6 -Dsonar.organization=asbuggywebapp6 -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=0ab485f7b37004e64bf1df4e8ca4c5be980cb930'
             }
         }
 
         stage('Run SCA Analysis Using Snyk') {
-            steps {		
+            steps {        
                 withCredentials([string(credentialsId: 'SNYK_TOKEN', variable: 'SNYK_TOKEN')]) {
                     sh 'mvn snyk:test -fn'
                 }
             }
         }
+        
         stage('Build Docker Image') { 
             steps { 
-                withDockerRegistry([credentialsId: 'dockerlogin', url: 'https://registry.hub.docker.com']) {
-                    script {
-                        app = docker.build("sarojamarraj/asg")
+                script {
+                    app = docker.build("sarojamarraj/asg")
+                }
+            }
+        }
+        
+        stage('Push image') {
+            steps {
+                script {
+                    docker.withRegistry('https://registry.hub.docker.com', 'dockerlogin') {
+                        app.push("latest")
                     }
                 }
             }
         }
-        stage('Push image') {
         
-        docker.withRegistry('https://registry.hub.docker.com', 'git') {
-            app.push("latest")
-        }
-    }
-   
-      stage('Deploy to Kubernetes') {
+        stage('Deploy to Kubernetes') {
             steps {
                 sh 'kubectl apply -f deployment.yaml'
             }
@@ -51,12 +54,16 @@ pipeline {
         stage('Run DAST Using ZAP') {
             steps {
                 withKubeConfig([credentialsId: 'kubelogin']) {
-                    sh('zap.sh -cmd -port 8090 -quickurl http://$(kubectl get services/asg --namespace=devsecops -o json| jq -r ".status.loadBalancer.ingress[] | .hostname") -quickprogress -quickout ${WORKSPACE}/zap_report.html')
+                    script {
+                        def serviceUrl = sh(script: 'kubectl get services/asg --namespace=devsecops -o json | jq -r ".status.loadBalancer.ingress[] | .hostname"', returnStdout: true).trim()
+                        sh "zap.sh -cmd -port 8090 -quickurl http://${serviceUrl} -quickprogress -quickout ${WORKSPACE}/zap_report.html"
+                    }
                     archiveArtifacts artifacts: 'zap_report.html'
                 }
             }
         }
     }
+    
     post {
         always {
             // Archive both the Gitleaks JSON report for inspection
