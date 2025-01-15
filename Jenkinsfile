@@ -51,7 +51,7 @@ pipeline {
                 sh 'kubectl apply -f deployment.yaml'
             }
         }
-    }
+    
     stage('RunDASTUsingZAP') {
       steps {
         withKubeConfig([credentialsId: 'kubelogin']) {
