@@ -53,33 +53,31 @@ pipeline {
             }
         }
         }
-        stage('Waiting for deployement to stabilize') {
-      steps {
-        sh 'pwd; sleep 60; echo "Application Has been deployed on K8S"'
-      }
-    }
-
-        
-        stage('DAST BlackBox') {
-            steps {
-                withKubeConfig([credentialsId: 'kubelogin']) {
-                    script {
-                        def serviceUrl = sh(script: 'kubectl get services/asg --namespace=devsecops -o json | jq -r "".spec.clusterIP"', returnStdout: true).trim()
-                        sh "zap.sh -cmd -port 8090 -quickurl http://${serviceUrl} -quickprogress -quickout ${WORKSPACE}/zap_report.html"
-                    }
-                    archiveArtifacts artifacts: 'zap_report.html'
-                }
-            }
-        }
-    }
-    
-    post {
-        always {
-            // Archive both the Gitleaks JSON report for inspection
-            archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
-        }
-        failure {
-            echo "Build failed, check reports for detected issues!"
-        }
+        stage('Waiting for deployment to stabilize') {
+    steps {
+        sh 'pwd; sleep 60; echo "Application has been deployed on K8S"'
     }
 }
+
+stage('DAST BlackBox') {
+    steps {
+        withKubeConfig([credentialsId: 'kubelogin']) {
+            script {
+                def serviceUrl = sh(script: 'kubectl get services/asg --namespace=devsecops -o json | jq -r ".spec.clusterIP"', returnStdout: true).trim()
+                echo "Service URL: ${serviceUrl}"
+                sh "zap.sh -cmd -port 8090 -quickurl http://${serviceUrl} -quickprogress -quickout ${WORKSPACE}/zap_report.html"
+            }
+        }
+        archiveArtifacts artifacts: 'zap_report.html'
+    }
+}
+
+post {
+    always {
+        archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
+    }
+    failure {
+        echo "Build failed, check reports for detected issues!"
+    }
+}
+} }
